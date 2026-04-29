@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Museo de las Realidades: Ventanas a la Realidad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #1a1a1a; color: #e5e7eb; font-family: 'Inter', sans-serif; }
+        canvas { display: block; width: 100%; height: 100%; background-color: #0f0f0f; border-radius: 0.5rem; }
+        .lens-btn { transition: all 0.3s ease; }
+        .lens-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        .slider-custom { -webkit-appearance: none; width: 100%; height: 6px; background: #374151; border-radius: 5px; outline: none; }
+        .slider-custom::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; }
+        #canvas-container { box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="p-5 border-b border-gray-800 text-center bg-[#111]">
+        <h1 class="text-3xl font-light tracking-wide text-white">El Museo de las Realidades</h1>
+        <p class="text-gray-400 text-sm mt-1">Ventanas a la Realidad</p>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <aside class="w-full md:w-80 border-r border-gray-800 bg-[#161616] p-6 flex flex-col gap-6 overflow-y-auto">
+            
+            <div>
+                <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4 font-semibold">Selecciona un Lente</h2>
+                <div class="flex flex-col gap-3">
+                    <button class="lens-btn active border border-gray-700 rounded p-3 text-left hover:bg-gray-800" data-lens="newton">
+                        1. Lente Newtoniano
+                    </button>
+                    <button class="lens-btn border border-gray-700 rounded p-3 text-left hover:bg-gray-800" data-lens="empiricism">
+                        2. Lente Empirista
+                    </button>
+                    <button class="lens-btn border border-gray-700 rounded p-3 text-left hover:bg-gray-800" data-lens="kant">
+                        3. Lente Trascendental (Kant)
+                    </button>
+                    <button class="lens-btn border border-gray-700 rounded p-3 text-left hover:bg-gray-800" data-lens="vedas">
+                        4. Lente de la Interconexión
+                    </button>
+                    <button class="lens-btn border border-gray-700 rounded p-3 text-left hover:bg-gray-800" data-lens="quantum">
+                        5. Lente Cuántico
+                    </button>
+                </div>
+            </div>
+
+            <div id="kant-controls" class="hidden bg-gray-900 p-4 rounded border border-gray-700">
+                <h3 class="text-sm font-semibold text-purple-400 mb-3">Intuiciones a priori</h3>
+                <label class="block text-xs text-gray-400 mb-1">Categoría de Espacio (Deformación)</label>
+                <input type="range" id="slider-space" min="0.2" max="3" step="0.1" value="1" class="slider-custom mb-4">
+                
+                <label class="block text-xs text-gray-400 mb-1">Categoría de Tiempo (Flujo)</label>
+                <input type="range" id="slider-time" min="0.1" max="3" step="0.1" value="1" class="slider-custom">
+            </div>
+
+            <div class="mt-auto bg-[#1a1a1a] p-5 rounded-lg border border-gray-800">
+                <h3 id="info-title" class="text-lg font-medium text-blue-400 mb-2">Lente Newtoniano</h3>
+                <div id="info-content" class="text-sm text-gray-400 space-y-2">
+                    <p><strong>Ontología:</strong> El universo es un reloj mecánico perfecto. Los objetos tienen propiedades intrínsecas e independientes.</p>
+                    <p><strong>Epistemología:</strong> Determinismo puro. Si conocemos la posición y la velocidad actual, podemos calcular el futuro y el pasado con certeza absoluta.</p>
+                </div>
+            </div>
+        </aside>
+
+        <section id="canvas-container" class="flex-1 relative p-4 bg-[#0a0a0a]">
+            <div id="quantum-hint" class="hidden absolute top-8 left-1/2 transform -translate-x-1/2 bg-cyan-900/80 text-cyan-200 px-4 py-2 rounded-full text-sm border border-cyan-500 animate-pulse pointer-events-none">
+                Haz clic en la nube de probabilidad para forzar el colapso.
+            </div>
+            <canvas id="simCanvas"></canvas>
+        </section>
+
+    </main>
+
+    <footer class="bg-black p-4 text-center border-t border-gray-800 z-10 relative">
+        <p class="text-gray-400 italic text-sm md:text-base">
+            "¿Cuál de estos lentes es la 'verdad'? ¿O son todos representaciones limitadas de una realidad más compleja?"
+        </p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // UI Elements
+        const buttons = document.querySelectorAll('.lens-btn');
+        const infoTitle = document.getElementById('info-title');
+        const infoContent = document.getElementById('info-content');
+        const kantControls = document.getElementById('kant-controls');
+        const sliderSpace = document.getElementById('slider-space');
+        const sliderTime = document.getElementById('slider-time');
+        const quantumHint = document.getElementById('quantum-hint');
+
+        // Text Data
+        const descriptions = {
+            newton: {
+                title: "Lente Newtoniano (Determinismo)",
+                color: "text-blue-400",
+                text: `<p><strong>Ontología:</strong> El universo es un reloj mecánico perfecto. La materia posee propiedades objetivas absolutas.</p>
+                       <p><strong>Epistemología:</strong> Determinismo. Conociendo el estado presente (vector y posición), la trayectoria futura es 100% predecible y observable continuamente.</p>`
+            },
+            empiricism: {
+                title: "Lente Empirista (Hume/Russell)",
+                color: "text-white",
+                text: `<p><strong>Ontología:</strong> Solo podemos afirmar la existencia de nuestras percepciones ('sense-data').</p>
+                       <p><strong>Epistemología:</strong> No podemos observar la 'causalidad' ni el movimiento continuo. Solo registramos eventos aislados (choques sensoriales) que la mente luego une por costumbre.</p>`
+            },
+            kant: {
+                title: "Lente Trascendental (Kant)",
+                color: "text-purple-400",
+                text: `<p><strong>Ontología:</strong> Existe una realidad independiente (el <em>Noúmeno</em> o 'cosa en sí'), pero nos es estructuralmente inaccesible.</p>
+                       <p><strong>Epistemología:</strong> Solo conocemos el <em>Fenómeno</em>. Nuestra mente formatea la realidad usando 'filtros' a priori: el Espacio y el Tiempo. Si alteramos los filtros, la realidad percibida cambia radicalmente.</p>`
+            },
+            vedas: {
+                title: "Lente de la Interconexión (Vedanta/Atman)",
+                color: "text-orange-400",
+                text: `<p><strong>Ontología:</strong> La separación entre los objetos es una ilusión (<em>Maya</em>). Todo es una única red vibrante (<em>Brahman</em>).</p>
+                       <p><strong>Epistemología:</strong> El observador y lo observado están entrelazados. Cada movimiento de una parte afecta al todo de manera indisoluble.</p>`
+            },
+            quantum: {
+                title: "Lente Cuántico (Copenhague)",
+                color: "text-cyan-400",
+                text: `<p><strong>Ontología:</strong> La realidad fundamental no está definida, existe como una superposición de probabilidades (Función de Onda).</p>
+                       <p><strong>Epistemología:</strong> El acto de observar altera la realidad. Al medir (hacer clic), forzamos a la naturaleza a definirse (Colapso), pero rápidamente vuelve a la incertidumbre.</p>`
+            }
+        };
+
+        // State Variables
+        let currentMode = 'newton';
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        // Particle Object
+        let p = {
+            x: 0, y: 0,
+            vx: 3, vy: 2.5,
+            radius: 12,
+            baseSpeed: 4
+        };
+
+        // Specific Mode States
+        let empiricismPoints = [];
+        let isQuantumCollapsed = false;
+        let collapsePos = { x: 0, y: 0 };
+        let collapseTimeout = null;
+        let timeOffset = 0; // Para animación de vibración
+
+        // Handle Resize
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            // Initialize particle near center if out of bounds
+            if (p.x === 0 || p.x > canvas.width || p.y > canvas.height) {
+                p.x = canvas.width / 2;
+                p.y = canvas.height / 2;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Input Listeners
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // UI Update
+                buttons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentMode = e.target.getAttribute('data-lens');
+
+                // Info Box Update
+                const info = descriptions[currentMode];
+                infoTitle.textContent = info.title;
+                infoTitle.className = `text-lg font-medium mb-2 ${info.color}`;
+                infoContent.innerHTML = info.text;
+
+                // Toggle Specific Controls
+                kantControls.style.display = currentMode === 'kant' ? 'block' : 'none';
+                quantumHint.style.display = currentMode === 'quantum' ? 'block' : 'none';
+
+                // Reset specific states
+                empiricismPoints = [];
+                isQuantumCollapsed = false;
+                clearTimeout(collapseTimeout);
+            });
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (currentMode === 'quantum' && !isQuantumCollapsed) {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                // Verificar si hizo clic cerca de la nube de probabilidad (radio ~150)
+                const dist = Math.hypot(clickX - p.x, clickY - p.y);
+                if (dist < 150) {
+                    isQuantumCollapsed = true;
+                    // Generar posición aleatoria dentro de la distribución (más densa al centro)
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = Math.sqrt(Math.random()) * 100; // Raíz cuadrada para sesgar hacia el centro
+                    collapsePos = {
+                        x: p.x + Math.cos(angle) * r,
+                        y: p.y + Math.sin(angle) * r
+                    };
+
+                    clearTimeout(collapseTimeout);
+                    collapseTimeout = setTimeout(() => {
+                        isQuantumCollapsed = false;
+                    }, 1000); // El colapso dura 1 segundo
+                }
+            }
+        });
+
+        // Physics Engine
+        function updatePhysics() {
+            timeOffset += 0.05;
+
+            // Apply Kantian Time modification
+            let timeFactor = 1;
+            if (currentMode === 'kant') {
+                timeFactor = parseFloat(sliderTime.value);
+            }
+
+            p.x += p.vx * timeFactor;
+            p.y += p.vy * timeFactor;
+
+            // Collision with walls
+            let collided = false;
+            if (p.x - p.radius < 0) { p.x = p.radius; p.vx *= -1; collided = true; }
+            if (p.x + p.radius > canvas.width) { p.x = canvas.width - p.radius; p.vx *= -1; collided = true; }
+            if (p.y - p.radius < 0) { p.y = p.radius; p.vy *= -1; collided = true; }
+            if (p.y + p.radius > canvas.height) { p.y = canvas.height - p.radius; p.vy *= -1; collided = true; }
+
+            // Empiricism logic: Register collision event
+            if (collided && currentMode === 'empiricism') {
+                empiricismPoints.push({ x: p.x, y: p.y, alpha: 1.0 });
+            }
+        }
+
+        // --- Render Functions per Lens ---
+
+        function drawNewton() {
+            // Particle
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#3b82f6'; // Solid Blue
+            ctx.fill();
+            
+            // Velocity Vector Arrow
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            const arrowLength = 40;
+            const endX = p.x + (p.vx * arrowLength/p.baseSpeed);
+            const endY = p.y + (p.vy * arrowLength/p.baseSpeed);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = '#60a5fa';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Arrow head
+            const angle = Math.atan2(p.vy, p.vx);
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6));
+            ctx.fillStyle = '#60a5fa';
+            ctx.fill();
+
+            // Future Trajectory (Dashed line calculating future bounce)
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(endX, endY);
+            let futX = endX;
+            let futY = endY;
+            let futVx = p.vx;
+            let futVy = p.vy;
+            for(let i=0; i<30; i++) {
+                futX += futVx * 5;
+                futY += futVy * 5;
+                if(futX < 0 || futX > canvas.width) futVx *= -1;
+                if(futY < 0 || futY > canvas.height) futVy *= -1;
+                ctx.lineTo(futX, futY);
+            }
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.stroke();
+            ctx.setLineDash([]); // reset
+        }
+
+        function drawEmpiricism() {
+            // Do not draw the particle. Only draw the collision points.
+            for (let i = empiricismPoints.length - 1; i >= 0; i--) {
+                let pt = empiricismPoints[i];
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, p.radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${pt.alpha})`;
+                ctx.fill();
+                
+                // Text label
+                ctx.fillStyle = `rgba(156, 163, 175, ${pt.alpha})`;
+                ctx.font = '10px Arial';
+                ctx.fillText(`Evento Sensorial X:${Math.round(pt.x)} Y:${Math.round(pt.y)}`, pt.x + 20, pt.y);
+
+                pt.alpha -= 0.005; // Fade out slowly
+                if (pt.alpha <= 0) {
+                    empiricismPoints.splice(i, 1);
+                }
+            }
+        }
+
+        function drawKant() {
+            const spaceFactor = parseFloat(sliderSpace.value);
+            
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            // Distorsionar el espacio (Phenomenon filter)
+            ctx.scale(spaceFactor, 1/spaceFactor);
+            
+            // Draw strange shape instead of perfect circle
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius * 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(192, 132, 252, 0.8)'; // Purple
+            ctx.fill();
+            ctx.strokeStyle = '#d8b4fe';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.restore();
+
+            // Background grid distortion visual effect
+            ctx.strokeStyle = 'rgba(192, 132, 252, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0; i<canvas.width; i+=50) {
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i + (spaceFactor * 50 - 50), canvas.height);
+            }
+            ctx.stroke();
+        }
+
+        function drawVedas() {
+            // General vibration based on particle movement
+            const vibX = Math.sin(timeOffset * 5) * 2;
+            const vibY = Math.cos(timeOffset * 4) * 2;
+            
+            const px = p.x + vibX;
+            const py = p.y + vibY;
+
+            // Connections to edges
+            ctx.strokeStyle = 'rgba(251, 146, 60, 0.2)'; // Orange glowing
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            const points = [
+                {x: 0, y: 0}, {x: canvas.width/2, y: 0}, {x: canvas.width, y: 0},
+                {x: 0, y: canvas.height/2}, {x: canvas.width, y: canvas.height/2},
+                {x: 0, y: canvas.height}, {x: canvas.width/2, y: canvas.height}, {x: canvas.width, y: canvas.height}
+            ];
+
+            points.forEach(pt => {
+                ctx.moveTo(px, py);
+                ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.stroke();
+
+            // Strong connection to Observer (Mouse)
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(mouseX, mouseY);
+            ctx.strokeStyle = 'rgba(251, 146, 60, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw vibrating particle
+            ctx.beginPath();
+            ctx.arc(px, py, p.radius * 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fb923c';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#fb923c';
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+        }
+
+        function drawQuantum() {
+            if (!isQuantumCollapsed) {
+                // Draw Probability Cloud
+                const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 150);
+                gradient.addColorStop(0, 'rgba(34, 211, 238, 0.8)'); // Cyan center
+                gradient.addColorStop(0.2, 'rgba(34, 211, 238, 0.4)');
+                gradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 150, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Draw interference ripples
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.1)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, Math.abs(Math.sin(timeOffset))*100, 0, Math.PI*2);
+                ctx.stroke();
+
+            } else {
+                // Collapsed State (Definite position)
+                ctx.beginPath();
+                ctx.arc(collapsePos.x, collapsePos.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#22d3ee';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Draw measuring indicator
+                ctx.strokeStyle = '#22d3ee';
+                ctx.beginPath();
+                ctx.arc(collapsePos.x, collapsePos.y, p.radius + 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.moveTo(collapsePos.x - 20, collapsePos.y); ctx.lineTo(collapsePos.x + 20, collapsePos.y);
+                ctx.moveTo(collapsePos.x, collapsePos.y - 20); ctx.lineTo(collapsePos.x, collapsePos.y + 20);
+                ctx.stroke();
+            }
+        }
+
+        // Main Loop
+        function animate() {
+            // Clear canvas (using semi-transparent rect for trail effects if needed)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            updatePhysics();
+
+            switch (currentMode) {
+                case 'newton': drawNewton(); break;
+                case 'empiricism': drawEmpiricism(); break;
+                case 'kant': drawKant(); break;
+                case 'vedas': drawVedas(); break;
+                case 'quantum': drawQuantum(); break;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialization
+        resizeCanvas();
+        animate();
+
+    </script>
+</body>
+</html>
